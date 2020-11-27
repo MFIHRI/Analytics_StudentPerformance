@@ -1,0 +1,218 @@
+---
+title: "Resuls report"
+date: "9/21/2020"
+output:
+  word_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.height = 8,
+	fig.width = 8,
+	warning = FALSE
+)
+```
+
+
+# Results
+
+The following Classification and Regression modeling techniques will be applied:  Decision Trees, Random-Forest and Logistic Regression.  Other techniques might be applied if deemed useful for the study.
+
+While the logit model will allow us to identify the set of relevant variables to explain the students' scores, the Classification Tree will allow us to give hierarchy to the variables according to the order in which the variables are chosen. The Random Forest will give us a change to improve accuracy on predictions.
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+#read the data
+StudentsPerformance <-read.csv("StudentsPerformance.csv")
+
+#define categorical variable
+StudentsPerformance$Pass=ifelse(StudentsPerformance$reading.score<60,0,1)
+StudentsPerformance$Pass=factor(StudentsPerformance$Pass)
+
+#prepare data to plot student performance -pie plot
+data=StudentsPerformance%>%dplyr::group_by(Pass)%>%dplyr::summarise(n=n())%>%
+	mutate(n=100*n/sum(n),
+				 ypos = cumsum(n)-0.2*n ,
+				 Pass=ifelse(Pass=="1","Pass","Fail"))
+	
+
+ggplot(data,aes(x="",y=n,fill=Pass))+geom_bar(stat = "identity", width=1) +
+  coord_polar("y",start=0)+
+	 theme_void() +
+  theme(legend.position="none") +
+   geom_text(aes(y = ypos, label = Pass), color = "white", size=6) +ggtitle("Student Distribution by Test Result")
+
+#delete not needed data for the analysis
+StudentsPerformance=StudentsPerformance%>%dplyr::select(-reading.score,-writing.score,-math.score)
+```
+
+
+
+## Decision Trees
+According to the analysis we consider on the descriptive stage, we are going to consider classifaction trees, where the dependent variable is dummy, with 2 categories, 0 (not pass), 1 (pass). Not pass are the students that got less than 60 point on reading score, and pass refer to the students with 60 to 100 points.
+
+
+We first run a classification tree without tune any parameter. The results is a small tree with one leave classifying the students as not pass, and 3 leaves classify “Pass”. The tree allow us to identify the most relevant variables to explain the score of the students. They are lunch, in first place, and parental level of education in second place, and test preparation course
+
+On the second plot, we reduce the cp input value and we obtain a complex tree, where the number of nodes increase and also the number of variables considered to classify. 
+
+However, although the second tree is larger and more complex, the predictive capacity (accuracy) calculated on the same data set, does not change. (0.76 in both)
+
+```{r}
+library(tree)
+library(rattle)	
+library(rpart)
+#create decision tree
+treePass = rpart(Pass~., data=StudentsPerformance)
+
+#summary(treePass)
+
+
+library(caret)
+#check prediction on full data
+treePrediction = predict(treePass, StudentsPerformance, type="class")
+#get confusion matrix - accuracy
+M=confusionMatrix(treePrediction, StudentsPerformance$Pass)
+A=M$overall["Accuracy"]
+
+#plot tree
+fancyRpartPlot(treePass,caption="Classification Tree cp=0.01")
+
+#check second treee with lower cp, plot, predict and obtain accuracy
+treePass_2 = rpart(Pass~., data=StudentsPerformance,cp=0.001)
+#summary(treePass_2)
+fancyRpartPlot(treePass_2,caption="Classification Tree cp=0.001")
+
+
+treePrediction = predict(treePass_2, StudentsPerformance, type="class")
+M=confusionMatrix(treePrediction, StudentsPerformance$Pass)
+B=M$overall["Accuracy"]
+
+#build table to print
+library(knitr)
+X=rbind(A,B)
+row.names(X)=c("Class. Tree cp=0.01","Class. Tree cp=0.001")
+kable(X,caption="Prediction Accuracy")
+```
+
+To evaluate more precisely the predictive accuracy of the classification tree, we split the set into train and test, so that the tree is created with the train set, and then the prediction is evaluated in the test subset.
+
+The results obtained, in terms of accuracy, do not change substantially.
+The order of the variables selected in the tree is also not changed.
+
+```{r}
+#create train and test data
+set.seed(101)
+n=nrow(StudentsPerformance)
+samplesize=n*0.75
+trainindex=sample(1:n, samplesize)
+train=StudentsPerformance[trainindex,]
+test=StudentsPerformance[-trainindex,]
+
+#create tree using train test
+treePass_train = rpart(Pass~.,data=train,cp=0.01)
+fancyRpartPlot(treePass_train,caption="Classification Tree - cp=0.01 - Train and Test")
+
+#predict over test data set
+treePrediction = predict(treePass_train, test, type="class")
+
+M=confusionMatrix(treePrediction, test$Pass)
+A=M$overall["Accuracy"]
+
+#secon tree for lower cp, get tree using train data and 
+#predict using test data
+treePass_train = rpart(Pass~.,data=train,cp=0.001)
+fancyRpartPlot(treePass_train,caption="Classification Tree - cp=0.001 - Train and Test")
+
+
+treePrediction = predict(treePass_train, test, type="class")
+
+#table(treePrediction, test$Pass)
+
+M=confusionMatrix(treePrediction, test$Pass)
+B=M$overall["Accuracy"]
+
+#create table for both accuracy results
+X=rbind(A,B)
+row.names(X)=c("Class. Tree cp=0.01","Class. Tree cp=0.001")
+kable(X,caption="Prediction Accuracy - Train and Test data sets")
+
+```
+
+## Random Forest
+
+The mtry parameter is the number of variables that are selected at each split of each tree. To choose it we consider the mtry that minimize the OOB error. For this data mtry=1 is the optimal.
+The Random Forest give us the possibility of build a classiffier more complex than the tree build with Rpart, but give us the posibilty to improve accuracy.
+
+On this case, for the data set selected, the accuracy is not improved with random forest. 
+
+ 
+```{r}
+library(randomForest)
+
+#get mtry value
+mtry <- tuneRF(train[,1:5],train$Pass, ntreeTry=500,
+               stepFactor=2,improve=0.01, trace=TRUE, plot=TRUE)
+#obtain best mtry option
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+#build RF for best mtrt using train data
+rfPass = randomForest(Pass~., data =StudentsPerformance, subset=trainindex,mtry=best.m,ntree=300)
+
+#plot variable importance
+varImpPlot(rfPass)
+
+#predict over test data
+treePrediction = predict(rfPass, test, type="class")
+M=confusionMatrix(treePrediction, test$Pass)
+
+B=M$overall["Accuracy"]
+
+```
+```{r}
+#ptint table
+X=A
+kable(X,caption="Prediction Accuracy - Train and Test data sets RF")
+
+```
+
+
+## logit regression
+
+The logit model was build over the train data set. According to the pvalue obtained for each coefficient on the model, we have that gender, race ethnicity, parental level of education (high school), lunch and test preparation are significative at 90% level.
+The accuracy remains on the same level than the previous model, on 0.768.
+
+```{r}
+
+#build logit function using train data
+library(gtsummary)
+train$Pass=ifelse(train$Pass=="1",1,0)
+logitPass_train=glm(Pass~.,data=train)
+
+#get results to present table
+tbl_regression_ex2 <-
+  glm(Pass~.,data=train, family = binomial(link = "logit")) %>%
+  tbl_regression(exponentiate = TRUE)
+
+tbl_regression_ex2
+
+#run prediction
+logitPrediction= predict(logitPass_train, test, type="response")
+logitPrediction=factor(ifelse(logitPrediction<0.5,0,1))
+M=confusionMatrix(logitPrediction,test$Pass)
+
+B=M$overall["Accuracy"]
+```
+
+```{r}
+X=B
+kable(X,caption="Prediction Accuracy - Train and Test data sets - Logit Model")
+
+```

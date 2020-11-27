@@ -1,0 +1,215 @@
+---
+title: "CAPSTONE PROJECT - CIND820"
+date: "9/21/2020"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Literature Review & Data Description
+
+Data description: Descriptive statistics of the working dataset,
+number of attributes, correlation between attributes, interesting trends
+(such as outliers and possible reasons), etc.
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+
+StudentsPerformance <-read.csv("StudentsPerformance.csv")
+
+
+```
+The data contains 1000 observations and 8 variables. The 5 independent variables are Gender, Race/Ethnicity, Parental Level of Education, lunch and test preparation course. All the variables are categoricals.
+Gender has 2 levels, female and male; Race has 5 levels, group A, B,C,D and E; parental level of education has 6 levels: bachelor's degree,  some college ,  master's degree ,   associate's degree, high school  and   some high school; lunch has 2 levels,  free/reduced and standard, and finally test preparation course has 2 levels, none or completed.
+
+The outcome variables are math score, reading score and writing score, all of them numericals.
+
+
+
+```{r}
+str(StudentsPerformance)
+summary(StudentsPerformance)
+```
+# UNIVARIATE ANALYSIS
+
+Some plots are presented to summarise each of the variables. Some quick information that we can obtain:
+-The frequency by gender shows that we have similar percentage of female and male (51.8% and 48.2% resp.)
+-The most common group for race is group C (31.9%), and the second most important is group D (26.2%).
+-The master degree is the less common level of education for parents (6%), and the most frequents are Some college and Associate's degree. (About 22% each)
+-The standard lunch is the most frequent. (64.5%)
+-Most of the students doesnt have the test preparation course.  (64.2%)
+
+
+```{r}
+StudentsPerformance %>%group_by(gender)%>%summarise(n=n())%>%
+	ggplot(aes(x=gender,y=n,fill=gender))+geom_bar(stat = "identity")+
+	ggtitle("Number of observations by gender")+theme_bw()+coord_flip()
+
+
+StudentsPerformance %>%group_by(race.ethnicity)%>%summarise(n=n())%>%
+	ggplot(aes(x=race.ethnicity,y=n,fill=race.ethnicity))+geom_bar(stat = "identity")+
+	ggtitle("Number of observations by Race/Etnicity")+theme_bw()+coord_flip()
+
+StudentsPerformance %>%group_by(parental.level.of.education)%>%summarise(n=n())%>%
+	ggplot(aes(x=parental.level.of.education,y=n,fill=parental.level.of.education))+geom_bar(stat = "identity")+
+	ggtitle("Number of observations by Parental Level of education")+theme_bw()+coord_flip()
+
+
+StudentsPerformance %>%group_by(lunch)%>%summarise(n=n())%>%
+	ggplot(aes(x=lunch,y=n,fill=lunch))+geom_bar(stat = "identity")+
+	ggtitle("Number of observations by Lunch Type")+theme_bw()+coord_flip()
+
+
+StudentsPerformance %>%group_by(test.preparation.course)%>%summarise(n=n())%>%
+	ggplot(aes(x=test.preparation.course,y=n,fill=test.preparation.course))+geom_bar(stat = "identity")+
+	ggtitle("Number of observations by Test Preparation Course")+theme_bw()+coord_flip()
+
+
+
+```
+The graphs below summarizeS the distribution of scores obtained by students. 
+We can see that the 3 dimensions (math, reading and writing) have similar distributions. All are relatively symmetrical around the mean, with some outliers at the lower extreme values as shown by the boxplots.
+The average score obtained by the students in math is 66, in reading 69 and in writing 68 (in a range of values from 0 to 100).
+
+```{r}
+
+	ggplot(StudentsPerformance,aes(y=math.score))+geom_histogram()+
+	ggtitle("Math Score Distribution: Histogram")+theme_bw()+coord_flip()
+
+	ggplot(StudentsPerformance,aes(y=math.score))+geom_boxplot()+
+	ggtitle("Math Score Distribution: Boxplot")+theme_bw()+coord_flip()
+
+
+	ggplot(StudentsPerformance,aes(y=reading.score))+geom_histogram()+
+	ggtitle("Reading Score Distribution: Histogram")+theme_bw()+coord_flip()
+
+	ggplot(StudentsPerformance,aes(y=reading.score))+geom_boxplot()+
+	ggtitle("Reading Score Distribution: Boxplot")+theme_bw()+coord_flip()
+
+
+	ggplot(StudentsPerformance,aes(y=writing.score))+geom_histogram()+
+	ggtitle("Writing Score Distribution: Histogram")+theme_bw()+coord_flip()
+
+	ggplot(StudentsPerformance,aes(y=writing.score))+geom_boxplot()+
+	ggtitle("Writing Score Distribution: Boxplot")+theme_bw()+coord_flip()
+
+```
+
+# BIVARIATE ANALYSIS
+
+On this section we are going to compare the score in relation to each of the categorical variables, and also the relation among the numerical variables.
+
+The correlation among the numerical variables is high and positive. The correlation for math score and writing score is 0.82 and 0.80 resp., and the correlation for reading and writing score is 0.95. This strong linear relation is summarized on the pairs plot below.
+
+
+```{r}
+M=cor(StudentsPerformance[,6:8])
+
+M
+
+pairs(StudentsPerformance[,6:8])
+```
+
+Considering the previous data, below we are going to analyse the relation between reading score and the independents variables. We have that, given the high correlation, the same conclusions can be applied to the other score.
+
+
+The distribution by gender shows that, in average, the reading score is higher among females.
+
+The reading score by Race Group, as we can see on the boxplot, is higher when we move forward on the groups. The group A  has in average lower values compared to Group B, Group B has lower values compared to group C, and so on.
+
+The parental level of education clearly correlates with student performance. students whose parents have high school register socres below the rest of the categories. The students with the highest score are those whose parents have a master degree.
+
+The students with standard lunch obtain better score than the students with reduced lunch.
+
+Finally, students that completed the test course obtained higher score in relation to the rest of the students.
+
+```{r}
+ggplot(StudentsPerformance,aes(x=gender, y=reading.score,fill=gender))+geom_boxplot()+
+	ggtitle("Reading Score Distribution by Gender")+theme_bw()+coord_flip()
+
+
+ggplot(StudentsPerformance,aes(x=race.ethnicity, y=reading.score,fill=race.ethnicity))+geom_boxplot()+
+	ggtitle("Reading Score Distribution by Race")+theme_bw()+coord_flip()
+
+
+ggplot(StudentsPerformance,aes(x=parental.level.of.education, y=reading.score,fill=parental.level.of.education))+geom_boxplot()+
+	ggtitle("Reading Score Distribution by Parental Level of Education")+theme_bw()+coord_flip()
+
+
+ggplot(StudentsPerformance,aes(x=lunch, y=reading.score,fill=lunch))+geom_boxplot()+
+	ggtitle("Reading Score Distribution by lunch")+theme_bw()+coord_flip()
+
+ggplot(StudentsPerformance,aes(x=test.preparation.course, y=reading.score,fill=test.preparation.course))+geom_boxplot()+
+	ggtitle("Reading Score Distribution by Test Preparation course")+theme_bw()+coord_flip()
+
+
+```
+
+Finally, we want to consider the same comparison but defining the outcome variable as dummy. 
+We are going to choose de reading score as the outcome variable, and we define 60 points as the cut value to decide if a student passes the test with a good enough level.
+
+The frequency per category is 254 students with score lower than 60, and 746 students with score 60 or higher.
+
+
+```{r}
+StudentsPerformance$Pass=ifelse(StudentsPerformance$reading.score<60,0,1)
+StudentsPerformance$Pass=factor(StudentsPerformance$Pass)
+table(StudentsPerformance$Pass)
+```
+When we consider the "Pass" distribution against the categorical variables, we deduct that:
+
+-The percentage of female is higher among those students with high score
+
+-the students with high score have lower percentage in Race group A and higher percentage in group E, in relation to the group of students with lower score.
+
+-the percentage of parents with bachelors degree and master degree is higher among students with better performance, while high school and some high school is most important among students with lower score.
+
+-the students with free/reduced lunch are less in relative terms among the students with better performance.
+
+-the percentage of completed test is higher for the students with high score.
+
+```{r}
+StudentsPerformance%>%group_by(gender,Pass)%>%
+    summarise(n=n())%>%
+    ggplot(aes(x=Pass, y=n,fill=gender))+
+	geom_bar(stat="identity",position="fill")+
+		ggtitle("Score and Gender")+theme_bw()+coord_flip()
+
+
+StudentsPerformance%>%group_by(race.ethnicity,Pass)%>%
+    summarise(n=n())%>%
+    ggplot(aes(x=Pass, y=n,fill=race.ethnicity))+
+	geom_bar(stat="identity",position="fill")+
+		ggtitle("Score and Race")+theme_bw()+coord_flip()
+
+StudentsPerformance%>%group_by(parental.level.of.education,Pass)%>%
+    summarise(n=n())%>%
+    ggplot(aes(x=Pass, y=n,fill=parental.level.of.education))+
+	geom_bar(stat="identity",position="fill")+
+		ggtitle("Score and parental level of education")+theme_bw()+coord_flip()
+
+StudentsPerformance%>%group_by(lunch,Pass)%>%
+    summarise(n=n())%>%
+    ggplot(aes(x=Pass, y=n,fill=lunch))+
+	geom_bar(stat="identity",position="fill")+
+		ggtitle("Score and Lunch")+theme_bw()+coord_flip()
+
+
+
+StudentsPerformance%>%group_by(test.preparation.course,Pass)%>%
+    summarise(n=n())%>%
+    ggplot(aes(x=Pass, y=n,fill=test.preparation.course))+
+	geom_bar(stat="identity",position="fill")+
+		ggtitle("Score and Test Preparation Course")+theme_bw()+coord_flip()
+
+
+
+
+```
